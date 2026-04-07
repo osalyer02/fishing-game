@@ -74,6 +74,8 @@ const elements = {
   minigameWindow: document.getElementById("minigameWindow"),
   timingBobber: document.getElementById("timingBobber"),
   lastCatch: document.getElementById("lastCatch"),
+  castButton: document.getElementById("castButton"),
+  reelButton: document.getElementById("reelButton"),
 
   buyRodButton: document.getElementById("buyRodButton"),
   buyWeaponButton: document.getElementById("buyWeaponButton"),
@@ -473,7 +475,8 @@ function missCurrentCast(message) {
 
 function onMinigameReelAttempt() {
   if (!app.minigame) {
-    onCastLine();
+    notify("Cast first, then reel on bite.", "warning");
+    render();
     return;
   }
 
@@ -533,7 +536,11 @@ function tickMinigame() {
     missCurrentCast("Too slow! The fish stole your bait.");
     saveState();
     render();
+    return;
   }
+
+  // Keep timing UI responsive while a cast is active.
+  render();
 }
 
 function startEncounter(monster) {
@@ -970,12 +977,19 @@ function renderLastCatch() {
 }
 
 function renderMinigame() {
-  const castButton = document.getElementById("castButton");
+  const castButton = elements.castButton;
+  const reelButton = elements.reelButton;
+  if (!castButton || !reelButton) {
+    return;
+  }
+
   if (!app.minigame) {
     elements.minigameStatus.textContent = "No cast active.";
     elements.minigameWindow.textContent = "Reaction window: -";
     elements.timingBobber.style.left = "4px";
     castButton.textContent = "Cast Line";
+    castButton.disabled = app.state.castsRemaining <= 0;
+    reelButton.disabled = true;
     return;
   }
 
@@ -989,7 +1003,9 @@ function renderMinigame() {
     elements.timingBobber.style.left = `${4 + progress * trackWidth}px`;
     elements.minigameStatus.textContent = "Waiting... watch the bobber.";
     elements.minigameWindow.textContent = `Reaction window: ${(app.minigame.reactionWindowMs / 1000).toFixed(2)}s`;
-    castButton.textContent = "Reel In!";
+    castButton.textContent = "Casting...";
+    castButton.disabled = true;
+    reelButton.disabled = false;
     return;
   }
 
@@ -998,7 +1014,9 @@ function renderMinigame() {
   elements.timingBobber.style.left = `${4 + Math.min(1, progress) * trackWidth}px`;
   elements.minigameStatus.textContent = "Bite! Reel now!";
   elements.minigameWindow.textContent = `Time left: ${(remainingMs / 1000).toFixed(2)}s`;
-  castButton.textContent = "Reel In!";
+  castButton.textContent = "Casting...";
+  castButton.disabled = true;
+  reelButton.disabled = false;
 }
 
 function renderInventoryList(node, category) {
@@ -1149,7 +1167,8 @@ function render() {
 }
 
 function bindEvents() {
-  document.getElementById("castButton").addEventListener("click", onCastLine);
+  elements.castButton?.addEventListener("click", onCastLine);
+  elements.reelButton?.addEventListener("click", onMinigameReelAttempt);
   document.getElementById("openShopButton").addEventListener("click", onOpenShop);
   document.getElementById("openDiaryButton").addEventListener("click", onOpenDiary);
   document.getElementById("backToLakeButton").addEventListener("click", onBackToLake);
@@ -1178,6 +1197,36 @@ function bindEvents() {
 
   document.getElementById("newGameButton").addEventListener("click", startNewRun);
   document.getElementById("victoryNewRunButton").addEventListener("click", startNewRun);
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === " " || event.code === "Space") {
+      if (app.scene === "fishing") {
+        event.preventDefault();
+        onMinigameReelAttempt();
+      }
+      return;
+    }
+
+    if (event.key.toLowerCase() === "f") {
+      if (app.scene === "fishing" && !app.minigame) {
+        onCastLine();
+      }
+      return;
+    }
+
+    if (event.key.toLowerCase() === "d") {
+      if (app.scene === "fishing" || app.scene === "shop") {
+        onOpenDiary();
+      } else if (app.scene === "diary") {
+        onCloseDiary();
+      }
+      return;
+    }
+
+    if (event.key.toLowerCase() === "escape" && app.scene === "diary") {
+      onCloseDiary();
+    }
+  });
 }
 
 async function init() {
