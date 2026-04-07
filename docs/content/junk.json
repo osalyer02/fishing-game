@@ -1,0 +1,8 @@
+[
+  {"id": "seaweed_clump", "name": "Seaweed Clump", "sell_value": 1},
+  {"id": "torn_boot", "name": "Torn Boot", "sell_value": 2},
+  {"id": "tin_can", "name": "Tin Can", "sell_value": 2},
+  {"id": "broken_lure", "name": "Broken Lure", "sell_value": 3},
+  {"id": "driftwood", "name": "Driftwood", "sell_value": 1},
+  {"id": "old_net_scrap", "name": "Old Net Scrap", "sell_value": 3}
+]

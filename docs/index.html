@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fishing RPG Web</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="kicker">Browser Edition</p>
+          <h1>Fishing RPG</h1>
+          <p class="subtitle">Cast, fight, upgrade, and defeat the Kraken Sovereign.</p>
+        </div>
+        <div class="hero-actions">
+          <button id="newGameButton" class="ghost">New Run</button>
+        </div>
+      </header>
+
+      <section class="status-grid panel">
+        <div>
+          <p class="label">Day</p>
+          <p id="dayValue" class="value">1</p>
+        </div>
+        <div>
+          <p class="label">Coins</p>
+          <p id="coinsValue" class="value">0</p>
+        </div>
+        <div>
+          <p class="label">Casts Left</p>
+          <p id="castsValue" class="value">5</p>
+        </div>
+        <div>
+          <p class="label">Health</p>
+          <p id="hpValue" class="value">100 / 100</p>
+        </div>
+        <div>
+          <p class="label">Rod</p>
+          <p id="rodValue" class="value">Twig Rod</p>
+        </div>
+        <div>
+          <p class="label">Weapon</p>
+          <p id="weaponValue" class="value">Driftwood Club</p>
+        </div>
+      </section>
+
+      <section id="eventBanner" class="panel event-banner info">
+        Welcome to Fishing RPG Web. Cast 5 times, then shop and end your day.
+      </section>
+
+      <main class="content-grid">
+        <section class="panel scene" id="fishingScene">
+          <h2>Lake</h2>
+          <p id="fishingHint" class="hint">Make your casts for the day, then head to the shop.</p>
+          <div class="action-row">
+            <button id="castButton">Cast Line</button>
+            <button id="openShopButton" class="ghost">Go To Shop</button>
+          </div>
+          <div class="scene-block">
+            <h3>Last Catch</h3>
+            <p id="lastCatch">No casts yet today.</p>
+          </div>
+        </section>
+
+        <section class="panel scene hidden" id="shopScene">
+          <h2>Shop</h2>
+          <p class="hint">Sell loot, buy upgrades, then end the day.</p>
+          <div class="scene-block">
+            <h3>Sell</h3>
+            <div class="action-row wrap">
+              <button id="sellFishButton">Sell All Fish</button>
+              <button id="sellTreasureButton">Sell All Treasure</button>
+              <button id="sellJunkButton">Sell All Junk</button>
+            </div>
+          </div>
+
+          <div class="scene-block">
+            <h3>Upgrades</h3>
+            <div class="action-col">
+              <button id="buyRodButton">Buy Next Rod</button>
+              <button id="buyWeaponButton">Buy Next Weapon</button>
+            </div>
+          </div>
+
+          <div class="scene-block">
+            <h3>Power-Ups (Day Only)</h3>
+            <div class="action-col">
+              <button class="powerup-btn" data-powerup-id="lucky_bait"></button>
+              <button class="powerup-btn" data-powerup-id="magnet_hook"></button>
+              <button class="powerup-btn" data-powerup-id="reinforced_line"></button>
+              <button class="powerup-btn" data-powerup-id="sharpening_stone"></button>
+            </div>
+            <p id="activePowerupsText" class="small-note">No active power-ups.</p>
+          </div>
+
+          <div class="action-row">
+            <button id="endDayButton">End Day</button>
+            <button id="backToLakeButton" class="ghost">Back To Lake</button>
+          </div>
+        </section>
+
+        <section class="panel scene hidden" id="combatScene">
+          <h2>Combat</h2>
+          <div class="monster-card">
+            <p class="label">Enemy</p>
+            <p id="monsterName" class="value">-</p>
+            <p id="monsterHp" class="small-note">HP: -</p>
+          </div>
+          <div class="action-row">
+            <button id="attackButton">Attack</button>
+            <button id="runButton" class="ghost">Run</button>
+          </div>
+          <p id="combatHint" class="hint">Defeat monsters for coins. You cannot run from the boss.</p>
+        </section>
+
+        <section class="panel scene hidden" id="victoryScene">
+          <h2>Victory</h2>
+          <p class="victory-copy">The Kraken Sovereign has fallen. You are now a harbor legend.</p>
+          <div class="action-row">
+            <button id="victoryNewRunButton">Start New Run</button>
+          </div>
+        </section>
+
+        <aside class="panel inventory-panel">
+          <h2>Inventory</h2>
+          <div class="scene-block">
+            <h3>Fish</h3>
+            <ul id="fishInventory" class="inventory-list"></ul>
+          </div>
+          <div class="scene-block">
+            <h3>Treasure</h3>
+            <ul id="treasureInventory" class="inventory-list"></ul>
+          </div>
+          <div class="scene-block">
+            <h3>Junk</h3>
+            <ul id="junkInventory" class="inventory-list"></ul>
+          </div>
+        </aside>
+      </main>
+
+      <section class="panel log-panel">
+        <h2>Event Log</h2>
+        <ul id="eventLog" class="log-list"></ul>
+      </section>
+    </div>
+
+    <script type="module" src="game.js"></script>
+  </body>
+</html>

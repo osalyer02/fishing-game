@@ -456,4 +456,39 @@ pygame>=2.5
 
 ---
 
+## 14) Web Version (GitHub Pages)
+
+A browser-playable version of the game now lives in the [`docs/`](docs/) folder:
+
+- `docs/index.html`
+- `docs/styles.css`
+- `docs/game.js`
+- `docs/content/*.json`
+
+### Run locally (quick static server)
+
+```bash
+python3 -m http.server 8000 --directory docs
+```
+
+Open:
+
+- `http://localhost:8000`
+
+### Publish on GitHub Pages
+
+1. Push this repository to GitHub.
+2. Open repository **Settings** -> **Pages**.
+3. Under **Build and deployment**, set:
+   - **Source:** `Deploy from a branch`
+   - **Branch:** `main`
+   - **Folder:** `/docs`
+4. Save and wait for Pages to deploy.
+
+After deployment, others can play online at your GitHub Pages URL.
+
+Game progress in the web version is saved in browser `localStorage` for each player.
+
+---
+
 This README is the authoritative v1 game specification for implementation.

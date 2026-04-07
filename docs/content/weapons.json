@@ -1,0 +1,7 @@
+[
+  {"id": "driftwood_club", "name": "Driftwood Club", "cost": 0, "min_damage": 4, "max_damage": 7},
+  {"id": "rusted_dagger", "name": "Rusted Dagger", "cost": 80, "min_damage": 7, "max_damage": 11},
+  {"id": "iron_spear", "name": "Iron Spear", "cost": 220, "min_damage": 11, "max_damage": 16},
+  {"id": "hunter_blade", "name": "Hunter Blade", "cost": 520, "min_damage": 16, "max_damage": 22},
+  {"id": "storm_trident", "name": "Storm Trident", "cost": 1100, "min_damage": 24, "max_damage": 32}
+]

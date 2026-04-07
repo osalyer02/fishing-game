@@ -1,0 +1,8 @@
+[
+  {"id": "rusty_coin_pouch", "name": "Rusty Coin Pouch", "sell_value": 25, "min_rod_tier": 1},
+  {"id": "silver_necklace", "name": "Silver Necklace", "sell_value": 60, "min_rod_tier": 2},
+  {"id": "antique_ring", "name": "Antique Ring", "sell_value": 110, "min_rod_tier": 3},
+  {"id": "golden_idol", "name": "Golden Idol", "sell_value": 190, "min_rod_tier": 4},
+  {"id": "jeweled_crown", "name": "Jeweled Crown", "sell_value": 320, "min_rod_tier": 5},
+  {"id": "sunken_relic_chest", "name": "Sunken Relic Chest", "sell_value": 500, "min_rod_tier": 6}
+]

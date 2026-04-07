@@ -1,0 +1,9 @@
+[
+  {"id": "river_slime", "name": "River Slime", "tier": 1, "hp": 20, "attack": 4, "reward": 15},
+  {"id": "bitefin_piranha", "name": "Bitefin Piranha", "tier": 1, "hp": 24, "attack": 5, "reward": 18},
+  {"id": "eel_stalker", "name": "Eel Stalker", "tier": 2, "hp": 36, "attack": 7, "reward": 30},
+  {"id": "reef_serpent", "name": "Reef Serpent", "tier": 2, "hp": 42, "attack": 8, "reward": 36},
+  {"id": "abyss_maw", "name": "Abyss Maw", "tier": 3, "hp": 60, "attack": 11, "reward": 60},
+  {"id": "dread_angler", "name": "Dread Angler", "tier": 3, "hp": 72, "attack": 13, "reward": 80},
+  {"id": "kraken_sovereign", "name": "Kraken Sovereign", "tier": 99, "hp": 160, "attack": 20, "reward": 1000, "boss": true}
+]

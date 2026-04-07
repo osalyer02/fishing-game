@@ -1,0 +1,50 @@
+[
+  {
+    "id": "twig_rod",
+    "name": "Twig Rod",
+    "tier": 1,
+    "cost": 0,
+    "fish_rarity_bonus": 0,
+    "category_weights": {"fish": 55, "treasure": 5, "junk": 35, "monster": 5}
+  },
+  {
+    "id": "bamboo_rod",
+    "name": "Bamboo Rod",
+    "tier": 2,
+    "cost": 120,
+    "fish_rarity_bonus": 5,
+    "category_weights": {"fish": 58, "treasure": 8, "junk": 28, "monster": 6}
+  },
+  {
+    "id": "fiberglass_rod",
+    "name": "Fiberglass Rod",
+    "tier": 3,
+    "cost": 350,
+    "fish_rarity_bonus": 12,
+    "category_weights": {"fish": 60, "treasure": 12, "junk": 20, "monster": 8}
+  },
+  {
+    "id": "carbon_rod",
+    "name": "Carbon Rod",
+    "tier": 4,
+    "cost": 800,
+    "fish_rarity_bonus": 20,
+    "category_weights": {"fish": 62, "treasure": 16, "junk": 12, "monster": 10}
+  },
+  {
+    "id": "master_angler_rod",
+    "name": "Master Angler Rod",
+    "tier": 5,
+    "cost": 1600,
+    "fish_rarity_bonus": 30,
+    "category_weights": {"fish": 60, "treasure": 22, "junk": 8, "monster": 10}
+  },
+  {
+    "id": "leviathan_rod",
+    "name": "Leviathan Rod",
+    "tier": 6,
+    "cost": 3000,
+    "fish_rarity_bonus": 40,
+    "category_weights": {"fish": 55, "treasure": 25, "junk": 5, "monster": 15}
+  }
+]
