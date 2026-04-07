@@ -53,10 +53,19 @@
       <main class="content-grid">
         <section class="panel scene" id="fishingScene">
           <h2>Lake</h2>
-          <p id="fishingHint" class="hint">Make your casts for the day, then head to the shop.</p>
+          <p id="fishingHint" class="hint">Cast and react fast when the bobber sinks.</p>
           <div class="action-row">
             <button id="castButton">Cast Line</button>
             <button id="openShopButton" class="ghost">Go To Shop</button>
+            <button id="openDiaryButton" class="ghost">Diary</button>
+          </div>
+          <div class="scene-block">
+            <h3>Hook Timing</h3>
+            <p id="minigameStatus" class="hint">No cast active.</p>
+            <div class="timing-track">
+              <div id="timingBobber" class="timing-bobber"></div>
+            </div>
+            <p id="minigameWindow" class="small-note">Reaction window: -</p>
           </div>
           <div class="scene-block">
             <h3>Last Catch</h3>
@@ -98,6 +107,19 @@
           <div class="action-row">
             <button id="endDayButton">End Day</button>
             <button id="backToLakeButton" class="ghost">Back To Lake</button>
+            <button id="openDiaryFromShopButton" class="ghost">Diary</button>
+          </div>
+        </section>
+
+        <section class="panel scene hidden" id="diaryScene">
+          <h2>Diary</h2>
+          <p id="diarySummary" class="hint">Discovered 0 fish species.</p>
+          <div class="scene-block">
+            <h3>Known Fish</h3>
+            <ul id="diaryFishList" class="inventory-list"></ul>
+          </div>
+          <div class="action-row">
+            <button id="closeDiaryButton" class="ghost">Back</button>
           </div>
         </section>
 

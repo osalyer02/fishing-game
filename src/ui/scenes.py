@@ -7,6 +7,8 @@ from enum import Enum
 
 class Scene(Enum):
     FISHING = "fishing"
+    MINIGAME = "minigame"
     SHOP = "shop"
+    DIARY = "diary"
     COMBAT = "combat"
     VICTORY = "victory"

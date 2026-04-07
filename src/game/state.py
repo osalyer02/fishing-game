@@ -54,6 +54,7 @@ class GameState:
     equipped_rod_id: str
     equipped_weapon_id: str
     inventory: Inventory
+    fish_caught_counts: dict[str, int]
     active_powerups: list[str]
     boss_defeated: bool
     boss_spawned: bool
@@ -69,10 +70,14 @@ class GameState:
             equipped_rod_id=STARTING_ROD_ID,
             equipped_weapon_id=STARTING_WEAPON_ID,
             inventory=Inventory(),
+            fish_caught_counts={},
             active_powerups=[],
             boss_defeated=False,
             boss_spawned=False,
         )
+
+    def record_fish_catch(self, fish_id: str, count: int = 1) -> None:
+        self.fish_caught_counts[fish_id] = self.fish_caught_counts.get(fish_id, 0) + count
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -84,6 +89,7 @@ class GameState:
             "equipped_rod_id": self.equipped_rod_id,
             "equipped_weapon_id": self.equipped_weapon_id,
             "inventory": asdict(self.inventory),
+            "fish_caught_counts": dict(self.fish_caught_counts),
             "active_powerups": list(self.active_powerups),
             "boss_defeated": self.boss_defeated,
             "boss_spawned": self.boss_spawned,
@@ -92,6 +98,22 @@ class GameState:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "GameState":
         inv = payload.get("inventory", {})
+        fish_caught_counts_raw = dict(payload.get("fish_caught_counts", {}))
+        fish_caught_counts: dict[str, int] = {}
+        for fish_id, count in fish_caught_counts_raw.items():
+            try:
+                safe_count = int(count)
+            except (TypeError, ValueError):
+                continue
+            if safe_count > 0:
+                fish_caught_counts[fish_id] = safe_count
+        # Backfill history from legacy saves that only tracked inventory.
+        for fish_id, count in dict(inv.get("fish", {})).items():
+            try:
+                safe_count = int(count)
+            except (TypeError, ValueError):
+                continue
+            fish_caught_counts[fish_id] = max(safe_count, int(fish_caught_counts.get(fish_id, 0)))
         return cls(
             day=int(payload.get("day", STARTING_DAY)),
             coins=int(payload.get("coins", STARTING_COINS)),
@@ -105,6 +127,7 @@ class GameState:
                 treasure=dict(inv.get("treasure", {})),
                 junk=dict(inv.get("junk", {})),
             ),
+            fish_caught_counts=fish_caught_counts,
             active_powerups=list(payload.get("active_powerups", [])),
             boss_defeated=bool(payload.get("boss_defeated", False)),
             boss_spawned=bool(payload.get("boss_spawned", False)),
@@ -136,6 +159,7 @@ class Fish:
     name: str
     rarity: str
     sell_value: int
+    min_rod_tier: int = 1
 
 
 @dataclass(frozen=True)

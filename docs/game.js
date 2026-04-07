@@ -33,11 +33,22 @@ const ROD_TIER_TO_MONSTER_TIER = {
   6: 3,
 };
 
+const REACTION_WINDOW_MS_BY_ROD_TIER = {
+  1: 260,
+  2: 320,
+  3: 380,
+  4: 460,
+  5: 560,
+  6: 680,
+};
+
 const app = {
   content: null,
   state: null,
   scene: "fishing",
+  sceneBeforeDiary: "fishing",
   currentEncounter: null,
+  minigame: null,
   lastCatch: null,
   log: [],
 };
@@ -54,15 +65,22 @@ const elements = {
 
   fishingScene: document.getElementById("fishingScene"),
   shopScene: document.getElementById("shopScene"),
+  diaryScene: document.getElementById("diaryScene"),
   combatScene: document.getElementById("combatScene"),
   victoryScene: document.getElementById("victoryScene"),
 
   fishingHint: document.getElementById("fishingHint"),
+  minigameStatus: document.getElementById("minigameStatus"),
+  minigameWindow: document.getElementById("minigameWindow"),
+  timingBobber: document.getElementById("timingBobber"),
   lastCatch: document.getElementById("lastCatch"),
 
   buyRodButton: document.getElementById("buyRodButton"),
   buyWeaponButton: document.getElementById("buyWeaponButton"),
   activePowerupsText: document.getElementById("activePowerupsText"),
+
+  diarySummary: document.getElementById("diarySummary"),
+  diaryFishList: document.getElementById("diaryFishList"),
 
   fishInventory: document.getElementById("fishInventory"),
   treasureInventory: document.getElementById("treasureInventory"),
@@ -124,6 +142,7 @@ function newGameState() {
       treasure: {},
       junk: {},
     },
+    fishCaughtCounts: {},
     activePowerups: [],
     bossDefeated: false,
     bossSpawned: false,
@@ -172,12 +191,18 @@ function sanitizeState(payload) {
       treasure: sanitizeInventoryBucket(safe.inventory?.treasure),
       junk: sanitizeInventoryBucket(safe.inventory?.junk),
     },
+    fishCaughtCounts: sanitizeInventoryBucket(safe.fishCaughtCounts),
     activePowerups: Array.isArray(safe.activePowerups)
       ? safe.activePowerups.filter((id) => typeof id === "string" && id in app.content.powerups)
       : [],
     bossDefeated: Boolean(safe.bossDefeated),
     bossSpawned: Boolean(safe.bossSpawned),
   };
+
+  for (const [fishId, count] of Object.entries(state.inventory.fish)) {
+    const prior = state.fishCaughtCounts[fishId] || 0;
+    state.fishCaughtCounts[fishId] = Math.max(prior, count);
+  }
 
   state.castsRemaining = Math.min(CASTS_PER_DAY, state.castsRemaining);
   state.playerHp = Math.max(1, Math.min(state.playerMaxHp, state.playerHp));
@@ -304,8 +329,13 @@ function adjustedRarityWeights(rod) {
 }
 
 function chooseFish(rod) {
+  const availableFish = Object.values(app.content.fish).filter((fish) => (fish.min_rod_tier || 1) <= rod.tier);
+  if (availableFish.length === 0) {
+    throw new Error(`No fish available for rod tier ${rod.tier}`);
+  }
+
   const byRarity = {};
-  for (const fish of Object.values(app.content.fish)) {
+  for (const fish of availableFish) {
     if (!byRarity[fish.rarity]) {
       byRarity[fish.rarity] = [];
     }
@@ -313,7 +343,8 @@ function chooseFish(rod) {
   }
 
   const rarityWeights = adjustedRarityWeights(rod);
-  const rarity = weightedChoice(Object.entries(rarityWeights));
+  const availableRarityWeights = Object.entries(rarityWeights).filter(([rarity]) => Array.isArray(byRarity[rarity]));
+  const rarity = weightedChoice(availableRarityWeights);
   return choice(byRarity[rarity]);
 }
 
@@ -348,21 +379,18 @@ function addToInventory(category, itemId) {
   bucket[itemId] = (bucket[itemId] || 0) + 1;
 }
 
-function castLine() {
-  if (app.state.castsRemaining <= 0) {
-    return {
-      category: "none",
-      message: "No casts left today. Visit the shop and end your day.",
-    };
-  }
+function recordFishCatch(fishId) {
+  app.state.fishCaughtCounts[fishId] = (app.state.fishCaughtCounts[fishId] || 0) + 1;
+}
 
-  app.state.castsRemaining -= 1;
+function resolveCatchOutcome() {
   const rod = app.content.rods[app.state.equippedRodId];
   const category = rollCategory();
 
   if (category === CATEGORY_FISH) {
     const fish = chooseFish(rod);
     addToInventory(CATEGORY_FISH, fish.id);
+    recordFishCatch(fish.id);
     return {
       category,
       itemId: fish.id,
@@ -405,6 +433,107 @@ function castLine() {
     sellValue: monster.reward,
     message: `A monster strikes: ${monster.name}!`,
   };
+}
+
+function reactionWindowMsForRodTier(rodTier) {
+  return REACTION_WINDOW_MS_BY_ROD_TIER[rodTier] || 300;
+}
+
+function startCastMinigame() {
+  if (app.state.castsRemaining <= 0) {
+    return { success: false, message: "No casts left today. Visit the shop and end your day." };
+  }
+
+  app.state.castsRemaining -= 1;
+  const rod = app.content.rods[app.state.equippedRodId];
+  const now = Date.now();
+  app.minigame = {
+    castStartedAt: now,
+    biteAt: now + randomInt(900, 2900),
+    sunkAt: null,
+    reactionWindowMs: reactionWindowMsForRodTier(rod.tier),
+  };
+  return { success: true };
+}
+
+function missCurrentCast(message) {
+  app.lastCatch = {
+    category: "none",
+    itemId: null,
+    itemName: "Nothing",
+    sellValue: 0,
+    message,
+  };
+  app.minigame = null;
+  notify(message, "warning");
+  if (app.state.castsRemaining <= 0) {
+    notify("No casts left. Visit the shop and end day.", "warning");
+  }
+}
+
+function onMinigameReelAttempt() {
+  if (!app.minigame) {
+    onCastLine();
+    return;
+  }
+
+  const now = Date.now();
+  if (app.minigame.sunkAt === null) {
+    missCurrentCast("Too early! You yanked the line before the bite.");
+    saveState();
+    render();
+    return;
+  }
+
+  if (now <= app.minigame.sunkAt + app.minigame.reactionWindowMs) {
+    const result = resolveCatchOutcome();
+    app.lastCatch = result;
+    app.minigame = null;
+
+    if (result.category === CATEGORY_FISH) {
+      notify(result.message, "success");
+    } else if (result.category === CATEGORY_MONSTER) {
+      notify(result.message, "error");
+    } else {
+      notify(result.message, "warning");
+    }
+
+    if (result.category === CATEGORY_MONSTER && result.monster) {
+      app.currentEncounter = startEncounter(result.monster);
+      setScene("combat");
+      notify("Combat begins: Attack or Run.", "error");
+    } else if (app.state.castsRemaining <= 0 && app.scene === "fishing") {
+      notify("No casts left. Visit the shop and end day.", "warning");
+    }
+
+    saveState();
+    render();
+    return;
+  }
+
+  missCurrentCast("Too slow! The fish stole your bait.");
+  saveState();
+  render();
+}
+
+function tickMinigame() {
+  if (app.scene !== "fishing" || !app.minigame) {
+    return;
+  }
+
+  const now = Date.now();
+  if (app.minigame.sunkAt === null && now >= app.minigame.biteAt) {
+    app.minigame.sunkAt = now;
+    notify("Bite! Click Reel In now!", "warning");
+    render();
+    return;
+  }
+
+  if (app.minigame.sunkAt !== null && now > app.minigame.sunkAt + app.minigame.reactionWindowMs) {
+    missCurrentCast("Too slow! The fish stole your bait.");
+    saveState();
+    render();
+  }
 }
 
 function startEncounter(monster) {
@@ -632,40 +761,60 @@ function onCastLine() {
     return;
   }
 
-  const result = castLine();
-  app.lastCatch = result;
-
-  if (result.category === CATEGORY_FISH) {
-    notify(result.message, "success");
-  } else if (result.category === CATEGORY_MONSTER) {
-    notify(result.message, "error");
-  } else if (result.category === "none") {
-    notify(result.message, "error");
-  } else {
-    notify(result.message, "warning");
+  if (app.minigame) {
+    onMinigameReelAttempt();
+    return;
   }
 
-  if (result.category === CATEGORY_MONSTER && result.monster) {
-    app.currentEncounter = startEncounter(result.monster);
-    setScene("combat");
-    notify("Combat begins: Attack or Run.", "error");
+  const startResult = startCastMinigame();
+  if (!startResult.success) {
+    notify(startResult.message, "error");
+    saveState();
+    render();
+    return;
   }
 
-  if (app.state.castsRemaining <= 0 && app.scene === "fishing") {
-    notify("No casts left. Visit the shop and end day.", "warning");
-  }
+  app.lastCatch = null;
+  notify("Line cast. Watch the bobber, then reel quickly when it sinks.", "info");
 
   saveState();
   render();
 }
 
 function onOpenShop() {
-  if (app.scene === "combat" || app.scene === "victory") {
+  if (app.scene === "combat" || app.scene === "victory" || app.scene === "diary") {
+    return;
+  }
+  if (app.minigame) {
+    notify("Finish your current cast before leaving the lake.", "warning");
     return;
   }
   setScene("shop");
   notify("Entered shop. Sell, upgrade, and end day when ready.", "info");
   saveState();
+  render();
+}
+
+function onOpenDiary() {
+  if (app.scene !== "fishing" && app.scene !== "shop") {
+    return;
+  }
+  if (app.scene === "fishing" && app.minigame) {
+    notify("Finish your current cast before opening the diary.", "warning");
+    return;
+  }
+  app.sceneBeforeDiary = app.scene;
+  setScene("diary");
+  notify("Opened diary.", "info");
+  render();
+}
+
+function onCloseDiary() {
+  if (app.scene !== "diary") {
+    return;
+  }
+  setScene(app.sceneBeforeDiary || "fishing");
+  notify("Closed diary.", "info");
   render();
 }
 
@@ -751,7 +900,9 @@ function onRun() {
 function startNewRun() {
   app.state = newGameState();
   app.scene = "fishing";
+  app.sceneBeforeDiary = "fishing";
   app.currentEncounter = null;
+  app.minigame = null;
   app.lastCatch = null;
   app.log = [];
   notify("Fresh start: Day 1.", "success");
@@ -776,6 +927,7 @@ function renderSceneVisibility() {
   const scenes = {
     fishing: elements.fishingScene,
     shop: elements.shopScene,
+    diary: elements.diaryScene,
     combat: elements.combatScene,
     victory: elements.victoryScene,
   };
@@ -796,10 +948,16 @@ function renderStatus() {
   elements.rod.textContent = rod.name;
   elements.weapon.textContent = weapon.name;
 
-  if (app.state.castsRemaining <= 0) {
+  if (app.minigame) {
+    if (app.minigame.sunkAt === null) {
+      elements.fishingHint.textContent = "Wait for the bobber to sink, then reel in fast.";
+    } else {
+      elements.fishingHint.textContent = "Bite! Reel in now before the fish gets away.";
+    }
+  } else if (app.state.castsRemaining <= 0) {
     elements.fishingHint.textContent = "No casts left. Visit the shop, sell loot, and end day.";
   } else {
-    elements.fishingHint.textContent = "Make your casts for the day, then head to the shop.";
+    elements.fishingHint.textContent = "Cast and react fast when the bobber sinks.";
   }
 }
 
@@ -809,6 +967,38 @@ function renderLastCatch() {
     return;
   }
   elements.lastCatch.textContent = app.lastCatch.message;
+}
+
+function renderMinigame() {
+  const castButton = document.getElementById("castButton");
+  if (!app.minigame) {
+    elements.minigameStatus.textContent = "No cast active.";
+    elements.minigameWindow.textContent = "Reaction window: -";
+    elements.timingBobber.style.left = "4px";
+    castButton.textContent = "Cast Line";
+    return;
+  }
+
+  const now = Date.now();
+  const trackWidth = Math.max(12, (elements.timingBobber.parentElement?.clientWidth || 248) - 12);
+
+  if (app.minigame.sunkAt === null) {
+    const total = Math.max(1, app.minigame.biteAt - app.minigame.castStartedAt);
+    const elapsed = Math.max(0, now - app.minigame.castStartedAt);
+    const progress = Math.min(1, elapsed / total);
+    elements.timingBobber.style.left = `${4 + progress * trackWidth}px`;
+    elements.minigameStatus.textContent = "Waiting... watch the bobber.";
+    elements.minigameWindow.textContent = `Reaction window: ${(app.minigame.reactionWindowMs / 1000).toFixed(2)}s`;
+    castButton.textContent = "Reel In!";
+    return;
+  }
+
+  const remainingMs = Math.max(0, app.minigame.sunkAt + app.minigame.reactionWindowMs - now);
+  const progress = 1 - remainingMs / Math.max(1, app.minigame.reactionWindowMs);
+  elements.timingBobber.style.left = `${4 + Math.min(1, progress) * trackWidth}px`;
+  elements.minigameStatus.textContent = "Bite! Reel now!";
+  elements.minigameWindow.textContent = `Time left: ${(remainingMs / 1000).toFixed(2)}s`;
+  castButton.textContent = "Reel In!";
 }
 
 function renderInventoryList(node, category) {
@@ -841,6 +1031,40 @@ function renderInventory() {
   renderInventoryList(elements.fishInventory, CATEGORY_FISH);
   renderInventoryList(elements.treasureInventory, CATEGORY_TREASURE);
   renderInventoryList(elements.junkInventory, CATEGORY_JUNK);
+}
+
+function renderDiary() {
+  const entries = Object.entries(app.state.fishCaughtCounts)
+    .map(([fishId, count]) => {
+      const fish = app.content.fish[fishId];
+      if (!fish || count <= 0) {
+        return null;
+      }
+      return {
+        id: fishId,
+        name: fish.name,
+        rarity: fish.rarity,
+        minRodTier: fish.min_rod_tier || 1,
+        count,
+        sellValue: fish.sell_value,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.minRodTier - b.minRodTier || a.name.localeCompare(b.name));
+
+  elements.diarySummary.textContent = `Discovered ${entries.length} / ${Object.keys(app.content.fish).length} species.`;
+
+  if (entries.length === 0) {
+    elements.diaryFishList.innerHTML = "<li>No fish discovered yet.</li>";
+    return;
+  }
+
+  elements.diaryFishList.innerHTML = entries
+    .map(
+      (entry) =>
+        `<li>T${entry.minRodTier} ${entry.name} <span class="small-note">[${entry.rarity}] x${entry.count} (${entry.sellValue}c)</span></li>`,
+    )
+    .join("");
 }
 
 function renderShop() {
@@ -915,8 +1139,10 @@ function renderLog() {
 function render() {
   renderSceneVisibility();
   renderStatus();
+  renderMinigame();
   renderLastCatch();
   renderInventory();
+  renderDiary();
   renderShop();
   renderCombat();
   renderLog();
@@ -925,7 +1151,10 @@ function render() {
 function bindEvents() {
   document.getElementById("castButton").addEventListener("click", onCastLine);
   document.getElementById("openShopButton").addEventListener("click", onOpenShop);
+  document.getElementById("openDiaryButton").addEventListener("click", onOpenDiary);
   document.getElementById("backToLakeButton").addEventListener("click", onBackToLake);
+  document.getElementById("openDiaryFromShopButton").addEventListener("click", onOpenDiary);
+  document.getElementById("closeDiaryButton").addEventListener("click", onCloseDiary);
 
   document.getElementById("sellFishButton").addEventListener("click", () => onShopAction(sellAllCategory(CATEGORY_FISH)));
   document
@@ -956,9 +1185,12 @@ async function init() {
     app.content = await loadContent();
     app.state = loadState();
     app.scene = app.state.bossDefeated ? "victory" : "fishing";
+    app.sceneBeforeDiary = "fishing";
+    app.minigame = null;
     bindEvents();
     notify("Welcome to Fishing RPG Web. Cast 5 times, then shop and end your day.", "info");
     render();
+    setInterval(tickMinigame, 60);
     saveState();
   } catch (error) {
     elements.eventBanner.className = "panel event-banner error";

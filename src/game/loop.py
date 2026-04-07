@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pygame
 
 import config
@@ -10,13 +12,21 @@ from game.content import load_content
 from game.rng import GameRng
 from game.save_load import load_game, save_game
 from systems.combat import CombatEncounter, attempt_run, player_attack, start_encounter
-from systems.fishing import CatchResult, cast_line
+from systems.fishing import CatchResult, resolve_cast_after_hook
 from systems.progression import advance_day, can_end_day
 from systems.shop import buy_next_rod, buy_next_weapon, buy_powerup, sell_all_category
 from ui.hud import draw_inventory_panel, draw_top_hud
 from ui.menus import draw_key_hint
 from ui.scenes import Scene
 from ui.text import draw_lines, draw_text
+
+
+@dataclass
+class FishingMinigame:
+    cast_started_ms: int
+    bite_time_ms: int
+    reaction_window_ms: int
+    sunk_at_ms: int | None = None
 
 
 class FishingGameApp:
@@ -43,6 +53,8 @@ class FishingGameApp:
 
         self.last_catch: CatchResult | None = None
         self.current_encounter: CombatEncounter | None = None
+        self.fishing_minigame: FishingMinigame | None = None
+        self.diary_return_scene: Scene = Scene.FISHING
         self.day_summary: list[str] | None = None
         self.frame = 0
         self.sprite_cache: dict[tuple[str, tuple[int, int, int]], pygame.Surface] = {}
@@ -55,6 +67,7 @@ class FishingGameApp:
                     running = False
                     break
 
+            self._tick_minigame()
             self.draw()
             pygame.display.flip()
             self.frame += 1
@@ -75,8 +88,12 @@ class FishingGameApp:
 
         if self.scene == Scene.FISHING:
             self._on_fishing_key(event.key)
+        elif self.scene == Scene.MINIGAME:
+            self._on_minigame_key(event.key)
         elif self.scene == Scene.SHOP:
             self._on_shop_key(event.key)
+        elif self.scene == Scene.DIARY:
+            self._on_diary_key(event.key)
         elif self.scene == Scene.COMBAT:
             self._on_combat_key(event.key)
         elif self.scene == Scene.VICTORY:
@@ -86,28 +103,12 @@ class FishingGameApp:
 
     def _on_fishing_key(self, key: int) -> None:
         if key == pygame.K_f:
-            result = cast_line(self.state, self.content, self.rng)
-            self.last_catch = result
-            if result.category == CATEGORY_FISH:
-                self._notify(result.message, level="success")
-            elif result.category == CATEGORY_MONSTER:
-                self._notify(result.message, level="error")
-            elif result.category == "none":
-                self._notify(result.message, level="error")
-            else:
-                self._notify(result.message, level="warning")
-
-            if result.category == CATEGORY_MONSTER and result.monster is not None:
-                if result.monster.boss:
-                    save_game(self.state)  # Required pre-boss checkpoint.
-                self.current_encounter = start_encounter(result.monster)
-                self.scene = Scene.COMBAT
-                self._notify("Combat begins: [A]ttack, [R]un", level="error")
-
-            if self.state.casts_remaining <= 0:
-                self._notify("No casts left. Visit the shop [S].", level="warning")
-
-        if key == pygame.K_s:
+            self._start_cast_minigame()
+        elif key == pygame.K_d:
+            self.diary_return_scene = Scene.FISHING
+            self.scene = Scene.DIARY
+            self._notify("Opened diary.", level="info")
+        elif key == pygame.K_s:
             self.scene = Scene.SHOP
             self._notify("Entered shop. Sell, upgrade, and end day when ready.", level="info")
 
@@ -115,6 +116,12 @@ class FishingGameApp:
         if key == pygame.K_b:
             self.scene = Scene.FISHING
             self._notify("Back at the lake.", level="info")
+            return
+
+        if key == pygame.K_d:
+            self.diary_return_scene = Scene.SHOP
+            self.scene = Scene.DIARY
+            self._notify("Opened diary.", level="info")
             return
 
         if key == pygame.K_1:
@@ -161,6 +168,32 @@ class FishingGameApp:
             ]
             self._notify(f"A new dawn: Day {self.state.day}.", level="system")
 
+    def _on_minigame_key(self, key: int) -> None:
+        if key not in (pygame.K_SPACE, pygame.K_f):
+            return
+
+        minigame = self.fishing_minigame
+        if minigame is None:
+            self.scene = Scene.FISHING
+            return
+
+        now = pygame.time.get_ticks()
+        if minigame.sunk_at_ms is None:
+            self._fail_cast("Too early! You yanked the line before the bite.")
+            return
+
+        if now <= minigame.sunk_at_ms + minigame.reaction_window_ms:
+            self._complete_successful_hook()
+            return
+
+        self._fail_cast("Too slow! The fish stole your bait.")
+
+    def _on_diary_key(self, key: int) -> None:
+        if key not in (pygame.K_b, pygame.K_d, pygame.K_ESCAPE):
+            return
+        self.scene = self.diary_return_scene
+        self._notify("Closed diary.", level="info")
+
     def _on_combat_key(self, key: int) -> None:
         if not self.current_encounter:
             self.scene = Scene.FISHING
@@ -193,9 +226,93 @@ class FishingGameApp:
             save_game(self.state)
             self.scene = Scene.FISHING
             self.current_encounter = None
+            self.fishing_minigame = None
             self.last_catch = None
             self.day_summary = ["New game started.", "The lake is calm.", "(Press any key)"]
             self._notify("Fresh start: Day 1.", level="system")
+
+    def _start_cast_minigame(self) -> None:
+        if self.state.casts_remaining <= 0:
+            self._notify("No casts left today. Visit the shop and end your day.", level="error")
+            return
+
+        self.state.casts_remaining -= 1
+        rod = self.content.get_rod(self.state.equipped_rod_id)
+        now = pygame.time.get_ticks()
+        bite_delay_ms = self.rng.randint(900, 2900)
+        reaction_window_ms = self._reaction_window_for_rod_tier(rod.tier)
+        self.fishing_minigame = FishingMinigame(
+            cast_started_ms=now,
+            bite_time_ms=now + bite_delay_ms,
+            reaction_window_ms=reaction_window_ms,
+        )
+        self.last_catch = None
+        self.scene = Scene.MINIGAME
+        self._notify("Line cast. Watch the bobber and reel fast when it sinks!", level="info", duration_ms=3200)
+
+    def _reaction_window_for_rod_tier(self, rod_tier: int) -> int:
+        windows = {
+            1: 260,
+            2: 320,
+            3: 380,
+            4: 460,
+            5: 560,
+            6: 680,
+        }
+        return windows.get(rod_tier, 300)
+
+    def _tick_minigame(self) -> None:
+        if self.scene != Scene.MINIGAME or self.fishing_minigame is None:
+            return
+
+        now = pygame.time.get_ticks()
+        minigame = self.fishing_minigame
+
+        if minigame.sunk_at_ms is None and now >= minigame.bite_time_ms:
+            minigame.sunk_at_ms = now
+            self._notify("Bite! Press [SPACE] now!", level="warning", duration_ms=minigame.reaction_window_ms + 500)
+            return
+
+        if minigame.sunk_at_ms is not None and now > minigame.sunk_at_ms + minigame.reaction_window_ms:
+            self._fail_cast("Too slow! The fish stole your bait.")
+
+    def _complete_successful_hook(self) -> None:
+        self.fishing_minigame = None
+        result = resolve_cast_after_hook(self.state, self.content, self.rng)
+        self.last_catch = result
+
+        if result.category == CATEGORY_FISH:
+            self._notify(result.message, level="success")
+        elif result.category == CATEGORY_MONSTER:
+            self._notify(result.message, level="error")
+        else:
+            self._notify(result.message, level="warning")
+
+        if result.category == CATEGORY_MONSTER and result.monster is not None:
+            if result.monster.boss:
+                save_game(self.state)  # Required pre-boss checkpoint.
+            self.current_encounter = start_encounter(result.monster)
+            self.scene = Scene.COMBAT
+            self._notify("Combat begins: [A]ttack, [R]un", level="error")
+            return
+
+        self.scene = Scene.FISHING
+        if self.state.casts_remaining <= 0:
+            self._notify("No casts left. Visit the shop [S].", level="warning")
+
+    def _fail_cast(self, message: str) -> None:
+        self.fishing_minigame = None
+        self.scene = Scene.FISHING
+        self.last_catch = CatchResult(
+            category="none",
+            item_id=None,
+            item_name="Nothing",
+            sell_value=0,
+            message=message,
+        )
+        self._notify(message, level="warning")
+        if self.state.casts_remaining <= 0:
+            self._notify("No casts left. Visit the shop [S].", level="warning")
 
     def _resolve_combat_if_over(self, combat_over: bool, player_won: bool) -> None:
         if not combat_over or not self.current_encounter:
@@ -265,8 +382,12 @@ class FishingGameApp:
     def draw(self) -> None:
         if self.scene == Scene.FISHING:
             self._draw_fishing_scene()
+        elif self.scene == Scene.MINIGAME:
+            self._draw_minigame_scene()
         elif self.scene == Scene.SHOP:
             self._draw_shop_scene()
+        elif self.scene == Scene.DIARY:
+            self._draw_diary_scene()
         elif self.scene == Scene.COMBAT:
             self._draw_combat_scene()
         else:
@@ -303,8 +424,9 @@ class FishingGameApp:
         draw_inventory_panel(s, self.small_font, self.state, self.content, 206, 20, 112, 158)
 
         draw_text(s, self.normal_font, "Lake Evershade", 8, 24, (240, 250, 255))
-        draw_key_hint(s, self.small_font, "F", "Cast line", 8, 38)
+        draw_key_hint(s, self.small_font, "F", "Cast line (timing game)", 8, 38)
         draw_key_hint(s, self.small_font, "S", "Open shop", 8, 48)
+        draw_key_hint(s, self.small_font, "D", "Open diary", 8, 58)
 
         if self.last_catch:
             self._draw_catch_card(s)
@@ -332,6 +454,45 @@ class FishingGameApp:
         surface.blit(icon, (12, 67))
         draw_text(surface, self.small_font, self.last_catch.item_name or "", 40, 69)
         draw_text(surface, self.small_font, f"Value: {self.last_catch.sell_value}", 40, 80, (220, 220, 190))
+
+    def _draw_minigame_scene(self) -> None:
+        s = self.internal_surface
+        s.fill((86, 170, 230))
+
+        for i in range(0, 100, 8):
+            pygame.draw.rect(s, (70 + i // 5, 145 + i // 6, 215), (0, i, 206, 8))
+        for i in range(100, 180, 7):
+            pygame.draw.rect(s, (20, 90 + (i % 14), 140 + (i % 12)), (0, i, 206, 7))
+
+        draw_top_hud(s, self.small_font, self.state, self.content)
+        draw_inventory_panel(s, self.small_font, self.state, self.content, 206, 20, 112, 158)
+        draw_text(s, self.normal_font, "Fishing Minigame", 8, 24, (240, 250, 255))
+
+        minigame = self.fishing_minigame
+        if minigame is None:
+            draw_text(s, self.small_font, "No active cast.", 8, 44)
+            self._draw_event_banner(s)
+            return
+
+        now = pygame.time.get_ticks()
+        draw_key_hint(s, self.small_font, "SPACE", "Reel in", 8, 38)
+
+        if minigame.sunk_at_ms is None:
+            draw_text(s, self.small_font, "Wait for the bobber to sink...", 8, 52, (230, 240, 255))
+            bobber_y = 108 + ((self.frame // 6) % 6) - 3
+        else:
+            draw_text(s, self.small_font, "Bite! Reel now!", 8, 52, (255, 240, 170))
+            elapsed = now - minigame.sunk_at_ms
+            bobber_y = 112 + min(20, elapsed // 15)
+            remaining_ms = max(0, (minigame.sunk_at_ms + minigame.reaction_window_ms) - now)
+            draw_text(s, self.small_font, f"Window: {remaining_ms / 1000:.2f}s", 8, 62, (255, 230, 170))
+
+        bobber_x = 120
+        pygame.draw.line(s, (230, 230, 230), (78, 70), (bobber_x, bobber_y), 1)
+        pygame.draw.circle(s, (255, 244, 244), (bobber_x, bobber_y), 5)
+        pygame.draw.circle(s, (205, 62, 62), (bobber_x, bobber_y - 2), 3)
+
+        self._draw_event_banner(s)
 
     def _draw_shop_scene(self) -> None:
         s = self.internal_surface
@@ -368,9 +529,50 @@ class FishingGameApp:
             "8 Reinforced Line (100)",
             "9 Sharpening Stone (90)",
             "E End day (requires 0 casts)",
+            "D Open diary",
             "B Return to lake",
         ]
         draw_lines(s, self.small_font, options, 8, 41, line_height=10)
+
+        self._draw_event_banner(s)
+
+    def _draw_diary_scene(self) -> None:
+        s = self.internal_surface
+        s.fill((22, 34, 52))
+        pygame.draw.rect(s, (34, 50, 70), (0, 20, 206, 160))
+
+        draw_top_hud(s, self.small_font, self.state, self.content)
+        draw_text(s, self.normal_font, "Angler Diary", 8, 24, (255, 236, 190))
+        draw_key_hint(s, self.small_font, "B", "Back", 8, 38)
+
+        fish_entries = []
+        for fish_id, count in self.state.fish_caught_counts.items():
+            fish = self.content.fish.get(fish_id)
+            if fish is None or count <= 0:
+                continue
+            fish_entries.append((fish.min_rod_tier, fish.rarity, fish.name, count, fish.sell_value))
+
+        fish_entries.sort(key=lambda row: (row[0], row[1], row[2]))
+        draw_text(
+            s,
+            self.small_font,
+            f"Discovered {len(fish_entries)} / {len(self.content.fish)} species",
+            8,
+            50,
+            (200, 225, 255),
+        )
+
+        if not fish_entries:
+            draw_text(s, self.small_font, "No fish logged yet. Catch some first.", 8, 64, (205, 220, 235))
+        else:
+            lines = [
+                f"T{tier} {name} [{rarity}] x{count} ({value}c)"
+                for tier, rarity, name, count, value in fish_entries[:11]
+            ]
+            draw_lines(s, self.small_font, lines, 8, 64, line_height=10)
+            remaining = len(fish_entries) - len(lines)
+            if remaining > 0:
+                draw_text(s, self.small_font, f"...and {remaining} more", 8, 64 + (len(lines) * 10), (175, 200, 220))
 
         self._draw_event_banner(s)
 

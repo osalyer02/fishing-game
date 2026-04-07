@@ -24,12 +24,17 @@ def adjusted_rarity_weights(rod: Rod) -> dict[str, float]:
 
 
 def choose_fish(content: ContentDatabase, rod: Rod, rng: GameRng) -> Fish:
+    available_fish = [fish for fish in content.fish.values() if fish.min_rod_tier <= rod.tier]
+    if not available_fish:
+        raise ValueError(f"No fish available for rod tier {rod.tier}")
+
     by_rarity: dict[str, list[Fish]] = defaultdict(list)
-    for fish in content.fish.values():
+    for fish in available_fish:
         by_rarity[fish.rarity].append(fish)
 
     rarity_weights = adjusted_rarity_weights(rod)
-    rarity = rng.weighted_choice([(name, weight) for name, weight in rarity_weights.items()])
+    available_rarity_weights = [(name, weight) for name, weight in rarity_weights.items() if by_rarity.get(name)]
+    rarity = rng.weighted_choice(available_rarity_weights)
     return rng.choice(by_rarity[rarity])
 
 

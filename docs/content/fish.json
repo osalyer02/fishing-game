@@ -1,17 +1,34 @@
 [
-  {"id": "bluegill", "name": "Bluegill", "rarity": "common", "sell_value": 8},
-  {"id": "perch", "name": "Perch", "rarity": "common", "sell_value": 10},
-  {"id": "carp", "name": "Carp", "rarity": "common", "sell_value": 12},
-  {"id": "catfish", "name": "Catfish", "rarity": "common", "sell_value": 14},
-  {"id": "trout", "name": "Trout", "rarity": "uncommon", "sell_value": 24},
-  {"id": "bass", "name": "Bass", "rarity": "uncommon", "sell_value": 28},
-  {"id": "walleye", "name": "Walleye", "rarity": "uncommon", "sell_value": 32},
-  {"id": "salmon", "name": "Salmon", "rarity": "rare", "sell_value": 55},
-  {"id": "pike", "name": "Pike", "rarity": "rare", "sell_value": 62},
-  {"id": "tuna", "name": "Tuna", "rarity": "rare", "sell_value": 75},
-  {"id": "swordfish", "name": "Swordfish", "rarity": "epic", "sell_value": 120},
-  {"id": "sturgeon", "name": "Sturgeon", "rarity": "epic", "sell_value": 145},
-  {"id": "marlin", "name": "Marlin", "rarity": "legendary", "sell_value": 220},
-  {"id": "bluefin_tuna", "name": "Bluefin Tuna", "rarity": "legendary", "sell_value": 260},
-  {"id": "coelacanth", "name": "Coelacanth", "rarity": "mythic", "sell_value": 420}
+  {"id": "bluegill", "name": "Bluegill", "rarity": "common", "sell_value": 8, "min_rod_tier": 1},
+  {"id": "perch", "name": "Perch", "rarity": "common", "sell_value": 10, "min_rod_tier": 1},
+  {"id": "carp", "name": "Carp", "rarity": "common", "sell_value": 12, "min_rod_tier": 1},
+  {"id": "catfish", "name": "Catfish", "rarity": "common", "sell_value": 14, "min_rod_tier": 1},
+  {"id": "glimmer_guppy", "name": "Glimmer Guppy", "rarity": "uncommon", "sell_value": 18, "min_rod_tier": 1},
+
+  {"id": "trout", "name": "Trout", "rarity": "uncommon", "sell_value": 24, "min_rod_tier": 2},
+  {"id": "bass", "name": "Bass", "rarity": "uncommon", "sell_value": 28, "min_rod_tier": 2},
+  {"id": "walleye", "name": "Walleye", "rarity": "uncommon", "sell_value": 32, "min_rod_tier": 2},
+  {"id": "moonfin_darter", "name": "Moonfin Darter", "rarity": "uncommon", "sell_value": 36, "min_rod_tier": 2},
+  {"id": "ember_scale_koi", "name": "Ember-Scale Koi", "rarity": "rare", "sell_value": 48, "min_rod_tier": 2},
+
+  {"id": "salmon", "name": "Salmon", "rarity": "rare", "sell_value": 55, "min_rod_tier": 3},
+  {"id": "pike", "name": "Pike", "rarity": "rare", "sell_value": 62, "min_rod_tier": 3},
+  {"id": "tuna", "name": "Tuna", "rarity": "rare", "sell_value": 75, "min_rod_tier": 3},
+  {"id": "glass_eel", "name": "Glass Eel", "rarity": "rare", "sell_value": 70, "min_rod_tier": 3},
+  {"id": "stormjaw_snook", "name": "Stormjaw Snook", "rarity": "epic", "sell_value": 95, "min_rod_tier": 3},
+
+  {"id": "swordfish", "name": "Swordfish", "rarity": "epic", "sell_value": 120, "min_rod_tier": 4},
+  {"id": "sturgeon", "name": "Sturgeon", "rarity": "epic", "sell_value": 145, "min_rod_tier": 4},
+  {"id": "sunken_angler", "name": "Sunken Angler", "rarity": "legendary", "sell_value": 165, "min_rod_tier": 4},
+  {"id": "prism_ray", "name": "Prism Ray", "rarity": "legendary", "sell_value": 185, "min_rod_tier": 4},
+
+  {"id": "marlin", "name": "Marlin", "rarity": "legendary", "sell_value": 220, "min_rod_tier": 5},
+  {"id": "bluefin_tuna", "name": "Bluefin Tuna", "rarity": "legendary", "sell_value": 260, "min_rod_tier": 5},
+  {"id": "aurora_manta", "name": "Aurora Manta", "rarity": "mythic", "sell_value": 310, "min_rod_tier": 5},
+  {"id": "voidscale_serpent", "name": "Voidscale Serpent", "rarity": "mythic", "sell_value": 360, "min_rod_tier": 5},
+
+  {"id": "coelacanth", "name": "Coelacanth", "rarity": "mythic", "sell_value": 420, "min_rod_tier": 6},
+  {"id": "astral_lanternfish", "name": "Astral Lanternfish", "rarity": "legendary", "sell_value": 410, "min_rod_tier": 6},
+  {"id": "leviathan_koi", "name": "Leviathan Koi", "rarity": "mythic", "sell_value": 500, "min_rod_tier": 6},
+  {"id": "chronofin_krakenfish", "name": "Chronofin Krakenfish", "rarity": "mythic", "sell_value": 620, "min_rod_tier": 6}
 ]

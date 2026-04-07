@@ -68,11 +68,16 @@ def cast_line(state: GameState, content: ContentDatabase, rng: GameRng) -> Catch
         return CatchResult(category="none", message="No casts left today. Visit the shop and end your day.")
 
     state.casts_remaining -= 1
+    return resolve_cast_after_hook(state, content, rng)
+
+
+def resolve_cast_after_hook(state: GameState, content: ContentDatabase, rng: GameRng) -> CatchResult:
     category = _roll_category(state, content, rng)
 
     if category == CATEGORY_FISH:
         fish = choose_fish(content, content.get_rod(state.equipped_rod_id), rng)
         state.inventory.add_item(CATEGORY_FISH, fish.id)
+        state.record_fish_catch(fish.id)
         return CatchResult(
             category=CATEGORY_FISH,
             item_id=fish.id,

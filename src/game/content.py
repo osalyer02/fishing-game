@@ -52,6 +52,7 @@ def load_content() -> ContentDatabase:
             name=row["name"],
             rarity=row["rarity"],
             sell_value=int(row["sell_value"]),
+            min_rod_tier=int(row.get("min_rod_tier", 1)),
         )
         for row in fish_rows
     }
