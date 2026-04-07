@@ -1,0 +1,17 @@
+[
+  {"id": "bluegill", "name": "Bluegill", "rarity": "common", "sell_value": 8},
+  {"id": "perch", "name": "Perch", "rarity": "common", "sell_value": 10},
+  {"id": "carp", "name": "Carp", "rarity": "common", "sell_value": 12},
+  {"id": "catfish", "name": "Catfish", "rarity": "common", "sell_value": 14},
+  {"id": "trout", "name": "Trout", "rarity": "uncommon", "sell_value": 24},
+  {"id": "bass", "name": "Bass", "rarity": "uncommon", "sell_value": 28},
+  {"id": "walleye", "name": "Walleye", "rarity": "uncommon", "sell_value": 32},
+  {"id": "salmon", "name": "Salmon", "rarity": "rare", "sell_value": 55},
+  {"id": "pike", "name": "Pike", "rarity": "rare", "sell_value": 62},
+  {"id": "tuna", "name": "Tuna", "rarity": "rare", "sell_value": 75},
+  {"id": "swordfish", "name": "Swordfish", "rarity": "epic", "sell_value": 120},
+  {"id": "sturgeon", "name": "Sturgeon", "rarity": "epic", "sell_value": 145},
+  {"id": "marlin", "name": "Marlin", "rarity": "legendary", "sell_value": 220},
+  {"id": "bluefin_tuna", "name": "Bluefin Tuna", "rarity": "legendary", "sell_value": 260},
+  {"id": "coelacanth", "name": "Coelacanth", "rarity": "mythic", "sell_value": 420}
+]
