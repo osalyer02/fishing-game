@@ -34,13 +34,15 @@ const ROD_TIER_TO_MONSTER_TIER = {
 };
 
 const REACTION_WINDOW_MS_BY_ROD_TIER = {
-  1: 260,
-  2: 320,
-  3: 380,
-  4: 460,
-  5: 560,
-  6: 680,
+  1: 650,
+  2: 760,
+  3: 880,
+  4: 1000,
+  5: 1150,
+  6: 1300,
 };
+const REEL_INPUT_GRACE_MS = 120;
+const MINIGAME_TICK_MS = 50;
 
 const app = {
   content: null,
@@ -72,6 +74,8 @@ const elements = {
   fishingHint: document.getElementById("fishingHint"),
   minigameStatus: document.getElementById("minigameStatus"),
   minigameWindow: document.getElementById("minigameWindow"),
+  timingTrack: document.getElementById("timingTrack"),
+  timingFill: document.getElementById("timingFill"),
   timingBobber: document.getElementById("timingBobber"),
   lastCatch: document.getElementById("lastCatch"),
   castButton: document.getElementById("castButton"),
@@ -441,6 +445,19 @@ function reactionWindowMsForRodTier(rodTier) {
   return REACTION_WINDOW_MS_BY_ROD_TIER[rodTier] || 300;
 }
 
+function syncMinigameBiteState(now = Date.now()) {
+  if (!app.minigame || app.minigame.sunkAt !== null) {
+    return false;
+  }
+
+  if (now >= app.minigame.biteAt) {
+    app.minigame.sunkAt = app.minigame.biteAt;
+    return true;
+  }
+
+  return false;
+}
+
 function startCastMinigame() {
   if (app.state.castsRemaining <= 0) {
     return { success: false, message: "No casts left today. Visit the shop and end your day." };
@@ -481,14 +498,14 @@ function onMinigameReelAttempt() {
   }
 
   const now = Date.now();
+  syncMinigameBiteState(now);
   if (app.minigame.sunkAt === null) {
-    missCurrentCast("Too early! You yanked the line before the bite.");
-    saveState();
+    notify("Too early. Wait for the bobber splash.", "info");
     render();
     return;
   }
 
-  if (now <= app.minigame.sunkAt + app.minigame.reactionWindowMs) {
+  if (now <= app.minigame.sunkAt + app.minigame.reactionWindowMs + REEL_INPUT_GRACE_MS) {
     const result = resolveCatchOutcome();
     app.lastCatch = result;
     app.minigame = null;
@@ -525,14 +542,13 @@ function tickMinigame() {
   }
 
   const now = Date.now();
-  if (app.minigame.sunkAt === null && now >= app.minigame.biteAt) {
-    app.minigame.sunkAt = now;
+  if (syncMinigameBiteState(now)) {
     notify("Bite! Click Reel In now!", "warning");
     render();
     return;
   }
 
-  if (app.minigame.sunkAt !== null && now > app.minigame.sunkAt + app.minigame.reactionWindowMs) {
+  if (app.minigame.sunkAt !== null && now > app.minigame.sunkAt + app.minigame.reactionWindowMs + REEL_INPUT_GRACE_MS) {
     missCurrentCast("Too slow! The fish stole your bait.");
     saveState();
     render();
@@ -782,7 +798,7 @@ function onCastLine() {
   }
 
   app.lastCatch = null;
-  notify("Line cast. Watch the bobber, then reel quickly when it sinks.", "info");
+  notify("Line cast. Wait for the splash cue, then reel in.", "info");
 
   saveState();
   render();
@@ -957,14 +973,14 @@ function renderStatus() {
 
   if (app.minigame) {
     if (app.minigame.sunkAt === null) {
-      elements.fishingHint.textContent = "Wait for the bobber to sink, then reel in fast.";
+      elements.fishingHint.textContent = "Wait for the splash cue, then reel in.";
     } else {
       elements.fishingHint.textContent = "Bite! Reel in now before the fish gets away.";
     }
   } else if (app.state.castsRemaining <= 0) {
     elements.fishingHint.textContent = "No casts left. Visit the shop, sell loot, and end day.";
   } else {
-    elements.fishingHint.textContent = "Cast and react fast when the bobber sinks.";
+    elements.fishingHint.textContent = "Cast and watch for the splash cue.";
   }
 }
 
@@ -979,7 +995,9 @@ function renderLastCatch() {
 function renderMinigame() {
   const castButton = elements.castButton;
   const reelButton = elements.reelButton;
-  if (!castButton || !reelButton) {
+  const timingTrack = elements.timingTrack;
+  const timingFill = elements.timingFill;
+  if (!castButton || !reelButton || !timingTrack || !timingFill) {
     return;
   }
 
@@ -987,6 +1005,9 @@ function renderMinigame() {
     elements.minigameStatus.textContent = "No cast active.";
     elements.minigameWindow.textContent = "Reaction window: -";
     elements.timingBobber.style.left = "4px";
+    timingFill.style.width = "0%";
+    timingTrack.classList.remove("state-waiting", "state-bite");
+    timingTrack.classList.add("state-idle");
     castButton.textContent = "Cast Line";
     castButton.disabled = app.state.castsRemaining <= 0;
     reelButton.disabled = true;
@@ -994,24 +1015,33 @@ function renderMinigame() {
   }
 
   const now = Date.now();
-  const trackWidth = Math.max(12, (elements.timingBobber.parentElement?.clientWidth || 248) - 12);
+  const trackWidth = Math.max(18, (elements.timingBobber.parentElement?.clientWidth || 248) - 22);
+  const bobberStart = 4;
 
   if (app.minigame.sunkAt === null) {
     const total = Math.max(1, app.minigame.biteAt - app.minigame.castStartedAt);
     const elapsed = Math.max(0, now - app.minigame.castStartedAt);
     const progress = Math.min(1, elapsed / total);
-    elements.timingBobber.style.left = `${4 + progress * trackWidth}px`;
+    elements.timingBobber.style.left = `${bobberStart + progress * trackWidth}px`;
+    timingFill.style.width = `${Math.max(4, progress * 100)}%`;
+    timingTrack.classList.remove("state-idle", "state-bite");
+    timingTrack.classList.add("state-waiting");
     elements.minigameStatus.textContent = "Waiting... watch the bobber.";
     elements.minigameWindow.textContent = `Reaction window: ${(app.minigame.reactionWindowMs / 1000).toFixed(2)}s`;
     castButton.textContent = "Casting...";
     castButton.disabled = true;
-    reelButton.disabled = false;
+    reelButton.disabled = true;
     return;
   }
 
-  const remainingMs = Math.max(0, app.minigame.sunkAt + app.minigame.reactionWindowMs - now);
-  const progress = 1 - remainingMs / Math.max(1, app.minigame.reactionWindowMs);
-  elements.timingBobber.style.left = `${4 + Math.min(1, progress) * trackWidth}px`;
+  const allowedWindow = app.minigame.reactionWindowMs + REEL_INPUT_GRACE_MS;
+  const remainingMs = Math.max(0, app.minigame.sunkAt + allowedWindow - now);
+  const progress = 1 - remainingMs / Math.max(1, allowedWindow);
+  const remainingRatio = remainingMs / Math.max(1, allowedWindow);
+  elements.timingBobber.style.left = `${bobberStart + Math.min(1, progress) * trackWidth}px`;
+  timingFill.style.width = `${Math.max(4, remainingRatio * 100)}%`;
+  timingTrack.classList.remove("state-idle", "state-waiting");
+  timingTrack.classList.add("state-bite");
   elements.minigameStatus.textContent = "Bite! Reel now!";
   elements.minigameWindow.textContent = `Time left: ${(remainingMs / 1000).toFixed(2)}s`;
   castButton.textContent = "Casting...";
@@ -1200,9 +1230,12 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === " " || event.code === "Space") {
-      if (app.scene === "fishing") {
+      if (app.scene === "fishing" && app.minigame) {
         event.preventDefault();
-        onMinigameReelAttempt();
+        const now = Date.now();
+        if (app.minigame.sunkAt !== null || now >= app.minigame.biteAt) {
+          onMinigameReelAttempt();
+        }
       }
       return;
     }
@@ -1239,7 +1272,7 @@ async function init() {
     bindEvents();
     notify("Welcome to Fishing RPG Web. Cast 5 times, then shop and end your day.", "info");
     render();
-    setInterval(tickMinigame, 60);
+    setInterval(tickMinigame, MINIGAME_TICK_MS);
     saveState();
   } catch (error) {
     elements.eventBanner.className = "panel event-banner error";
