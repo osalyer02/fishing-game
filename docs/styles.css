@@ -246,24 +246,100 @@ button.ghost {
 .timing-track {
   margin-top: 0.6rem;
   width: 100%;
-  height: 12px;
+  height: 18px;
   border-radius: 999px;
-  border: 1px solid rgba(188, 223, 243, 0.45);
-  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(188, 223, 243, 0.55);
+  background: linear-gradient(180deg, rgba(3, 23, 39, 0.85), rgba(8, 41, 65, 0.72));
   position: relative;
   overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.timing-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 0%;
+  background: linear-gradient(
+    90deg,
+    rgba(116, 215, 151, 0.45),
+    rgba(62, 164, 191, 0.45) 70%,
+    rgba(143, 177, 199, 0.45)
+  );
+  transition: width 70ms linear;
+}
+
+.timing-track-gloss {
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0.24),
+    rgba(255, 255, 255, 0) 35%,
+    rgba(255, 255, 255, 0.18) 65%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  opacity: 0.35;
+  pointer-events: none;
+  animation: track-glint 2200ms linear infinite;
+}
+
+.timing-bite-zone {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 18%;
+  background: linear-gradient(90deg, rgba(240, 122, 117, 0.14), rgba(240, 122, 117, 0.34));
+  border-left: 1px dashed rgba(255, 202, 109, 0.55);
+  opacity: 0;
+  transition: opacity 140ms ease;
 }
 
 .timing-bobber {
   position: absolute;
-  top: 1px;
+  top: 2px;
   left: 4px;
-  width: 8px;
-  height: 8px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: linear-gradient(180deg, #fff8f8, #ff7f7f);
-  box-shadow: 0 0 7px rgba(255, 127, 127, 0.6);
-  transition: left 80ms linear;
+  background: radial-gradient(circle at 35% 28%, #ffffff 0 24%, #ff9c9c 58%, #d94c4c 100%);
+  border: 1px solid rgba(255, 246, 246, 0.55);
+  box-shadow: 0 0 12px rgba(255, 127, 127, 0.56);
+  transition: left 60ms linear, transform 120ms ease, box-shadow 120ms ease;
+  z-index: 2;
+}
+
+.timing-track.state-idle .timing-fill {
+  opacity: 0.35;
+}
+
+.timing-track.state-waiting .timing-fill {
+  opacity: 0.6;
+}
+
+.timing-track.state-waiting .timing-bobber {
+  animation: bobber-drift 900ms ease-in-out infinite;
+}
+
+.timing-track.state-bite {
+  border-color: rgba(255, 206, 97, 0.88);
+  box-shadow: 0 0 0 2px rgba(255, 206, 97, 0.22), inset 0 1px 3px rgba(0, 0, 0, 0.52);
+}
+
+.timing-track.state-bite .timing-fill {
+  background: linear-gradient(90deg, rgba(244, 193, 95, 0.58), rgba(240, 122, 117, 0.58));
+  opacity: 0.9;
+}
+
+.timing-track.state-bite .timing-bite-zone {
+  opacity: 1;
+}
+
+.timing-track.state-bite .timing-bobber {
+  animation: bobber-alert 240ms ease-in-out infinite alternate;
 }
 
 .log-panel {
@@ -302,6 +378,39 @@ button.ghost {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes track-glint {
+  from {
+    transform: translateX(-22%);
+  }
+
+  to {
+    transform: translateX(22%);
+  }
+}
+
+@keyframes bobber-drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes bobber-alert {
+  from {
+    transform: scale(1);
+    box-shadow: 0 0 10px rgba(255, 193, 95, 0.5);
+  }
+
+  to {
+    transform: scale(1.13);
+    box-shadow: 0 0 14px rgba(255, 122, 122, 0.85);
   }
 }
 
